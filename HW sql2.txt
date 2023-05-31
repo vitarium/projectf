@@ -1,0 +1,34 @@
+W269N-WFGWX-YVC9B-4J6C9-T83GX
+
+Предложить скрипт SQL, который сформирует выборку по абонентам, которые: 
+1.	Подключились в декабре (с 1 по 31), не реактивации.
+2.	Тип клиента Business
+3.	Подключились на один из тарифных планов «Бизнес-план», «Бизнес-план 1.0», «Бизнес-план 2.0», «Бизнес-план 3.0», «Бизнес-план 4.0» и продолжают пользоваться сегодня. 
+4.	Подключили один из пакетов «Безлимитный интернет 512», «Безлимитный интернет 1», «Безлимитный интернет 2» в дату подключения абонента и продолжают пользоваться на сегодня. 
+Скрипт должен формировать таблицу со следующими полями: 
+1.	Дата подключения абонента
+2.	ID абонента
+3.	Название тарифного плана, которым абонент пользуется на сегодня
+4.	Название услуги Безлимитного интернета, которым абонент пользуется на сегодня
+5.	Название компании, к которой принадлежит абонент*
+6.	Количество абонентов с голосовым типом тарифного плана в статусе активный у компании, к которой принадлежит этот абонент.*
+
+
+WITH Q1 AS (select SUBSCRIBER.COMPANY_NAME, count(distinct SUBSCRIBER.SUB_ID) as cnt 
+from SUBSCRIBER
+group by SUBSCRIBER.COMPANY_NAME
+where SUBSCRIBER.STATUS=1 and SUBSCRIBER.PP_TYPE_ID='Voice'), 
+Q2 as (select SUBSCRIBER.SUB_ID, SUBSCRIBER.COMPANY_NAME, Q1.cnt 
+from SUBSCRIBER
+JOIN Q1 ON SUBSCRIBER.COMPANY_NAME = Q1.COMPANY_NAME
+group by SUBSCRIBER.SUB_ID, SUBSCRIBER.COMPANY_NAME
+where SUBSCRIBER.STATUS=1 and SUBSCRIBER.PP_TYPE_ID='Voice')
+
+select min(SERVICE.SERVICE_START_DATE) as service_start_date, SERVICE.SUB_ID, TARIFF.PP_NAME, SERVICE.SERVICE_NAME, SUBSCRIBER.COMPANY_NAME, Q2.cnt
+from SERVICE
+JOIN TARIFF ON SERVICE.SUB_ID = TARIFF.SUB_ID
+JOIN SUBSCRIBER ON SERVICE.SUB_ID = SUBSCRIBER.SUB_ID
+JOIN GROSS ON SERVICE.SUB_ID = GROSS.SUB_ID
+JOIN Q2 ON SERVICE.SUB_ID = Q2.SUB_ID
+where
+DATE_PART('month', GROSS.DATE_ACT)=12 and GROSS.CUSTOMER_TYPE='Business' and TARIFF.PP_END_DATE='2999-01-01 00:00:00' and TARIFF.PP_NAME like'Business%' and DATE_PART('month', SERVICE.SERVICE_START_DATE)=12 and SERVICE.SERVICE_NAME like'Безлимитный%' and SERVICE.SERVICE_STOP_DATE='2999-01-01 00:00:00'
